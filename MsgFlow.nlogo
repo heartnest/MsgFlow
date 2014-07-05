@@ -30,7 +30,7 @@ end
 
 to go
    ask turtles with [infected?]
-    [ if all? link-neighbors [not resistant?]
+    [ if all? link-neighbors [not resistant? or not infected?]
       [stop]
     ]
   spread-virus
@@ -59,7 +59,7 @@ end
 
 to spread-virus
   ask turtles with [infected?]
-    [ ask link-neighbors with [not resistant?]
+    [ ask link-neighbors with [not resistant? and not infected? ]
         [ ifelse random-float 100 < virus-spread-chance
             [ become-infected ] 
             [become-resistant]
@@ -189,11 +189,29 @@ virus-spread-chance
 virus-spread-chance
 1
 100
-50
+27
 1
 1
 NIL
 HORIZONTAL
+
+PLOT
+772
+235
+972
+385
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count turtles with [infected?]"
 
 @#$#@#$#@
 ## WHAT IS IT?
