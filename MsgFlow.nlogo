@@ -1,12 +1,18 @@
+undirected-link-breed [facebooks facebook]
+undirected-link-breed [wechats wechat]
+
 turtles-own
 [
   infected?           ;; if true, the turtle is infectious
   resistant?          ;; if true, the turtle can't be infected
 ]
 
-globals [infect_count tmp_count]
+
+
+globals [infect_count tmp_count tmp]
 
 to setup
+  
   clear-all
   setup-nodes
   setup-spatially-clustered-network
@@ -14,7 +20,15 @@ to setup
   ask one-of turtles
     [ become-infected ]
 ;  ask links [ set color white ]
+
+  ask facebooks [set color blue]
+  ask wechats [set color yellow]
+  
+
   reset-ticks
+  
+  ;debug
+  ;ask turtles [ set label who ]
 end
 
 to setup-nodes
@@ -29,10 +43,10 @@ to setup-nodes
 end
 
 to go
-   ask turtles with [infected?]
-    [ if all? link-neighbors [not resistant? or not infected?]
+    ifelse tmp_count = tmp
       [stop]
-    ]
+      [set tmp tmp_count]
+      
   spread-virus
   tick
 end
@@ -45,25 +59,31 @@ to setup-spatially-clustered-network
     [
       let choice (min-one-of (other turtles with [not link-neighbor? myself])
                    [distance myself])
-      ;let choice (min-one-of (other turtles  with [not link-neighbor? myself]) [distance myself])
-      if choice != nobody [ create-link-with choice ]
+
+      if choice != nobody [ 
+        ifelse random 2 = 0
+          [create-facebook-with choice]
+          [create-wechat-with choice] 
+        ]
     ]
   ]
   ;  tries to get the nodes as far as possible from each other, in order to avoid crowding
   repeat 10
   [
-    ;layout-radial turtles links (turtle 0)
     layout-spring turtles links 0.3 (world-width / (sqrt number-of-nodes)) 1
   ]
 end
 
 to spread-virus
   ask turtles with [infected?]
-    [ ask link-neighbors with [not resistant? and not infected? ]
+    [ ask facebook-neighbors with [not resistant? and not infected? ]
+      
         [ ifelse random-float 100 < virus-spread-chance
             [ become-infected ] 
             [become-resistant]
-          
+            
+            ;debug
+            ;show facebook-neighbors
         ] 
     ]
 end
@@ -71,21 +91,23 @@ end
 to become-infected  ;; turtle procedure
   set infected? true
   set resistant? false
-  set color red
+  set color green
   set infect_count (infect_count + 1)
   set tmp_count infect_count
+  set shape "face happy"
 end
 
 to become-susceptible  ;; turtle procedure
+  
   set infected? false
   set resistant? false
-  set color green
+  set color gray
 end
 
 to become-resistant  ;; turtle procedure
   set infected? false
   set resistant? true
-  set color gray
+  set color red
   ask my-links [ set color gray - 2 ]
 end
 @#$#@#$#@
@@ -123,9 +145,9 @@ SLIDER
 114
 number-of-nodes
 number-of-nodes
-10
+4
 500
-157
+44
 1
 1
 NIL
@@ -172,9 +194,9 @@ SLIDER
 164
 average-node-degree
 average-node-degree
-6
+2
 20
-7
+6
 1
 1
 NIL
@@ -189,7 +211,7 @@ virus-spread-chance
 virus-spread-chance
 1
 100
-27
+71
 1
 1
 NIL
@@ -212,6 +234,17 @@ false
 "" ""
 PENS
 "default" 1.0 0 -16777216 true "" "plot count turtles with [infected?]"
+
+MONITOR
+38
+255
+148
+300
+number of links
+count links
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
