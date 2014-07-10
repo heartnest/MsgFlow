@@ -9,26 +9,144 @@ turtles-own
 
 
 
-globals [infect_count tmp_count tmp]
+globals [
+  infected-count 
+  last-infected-count 
+  total-runs 
+  run-count
+]
 
-to setup
+
+;---------------------------------------
+;    Simulation Life Cycle
+;---------------------------------------
+
+to load-igraph
+  ca
+  let arr []
+  let arr_nodes []
+  let arr_edges []
   
+  ;; read file
+  file-open "a.txt"
+  while [ not file-at-end? ] [
+    set arr lput file-read-line arr
+  ]
+  file-close
+  
+  ;; setup arrays
+  set arr filter [not (member? "{" ?) and not (member? "}" ?) and not (member? "igraph" ?)] arr
+  set arr_nodes filter [(member? ";" ?) and not (member? " -- " ?) ] arr
+  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
+  
+  ;; build graph
+  igraph-create-nodes arr_nodes
+  igraph-connect arr_edges
+  
+  ;; clean graph
+  repeat 10
+  [
+    layout-spring turtles links 0.3 (world-width / (sqrt number-of-nodes)) 1
+  ]
+end
+
+to igraph-create-nodes [arr_nodes]
+    crt length arr_nodes [ setxy (random-xcor * 0.95) (random-ycor * 0.95) ]
+end
+
+to igraph-connect [arr_edges]
+  
+  foreach arr_edges [
+    if member? " -- " ?[ 
+      ;show ?
+      let p  position " -- " ?
+      let t1 substring ? 2 p
+      let t2 substring ? (p + 4) (length ? - 1)
+      
+      let turtle1 turtle (read-from-string t1)
+      let turtle2 turtle (read-from-string t2)
+      
+      if is-turtle? turtle1
+      [ask turtle1 [ create-link-with turtle2 ]]
+
+      
+    ]
+  ]
+end
+  
+
+;; Just show an idea of how the network is constructed
+;; nothing to do with our simulation
+to setup
   clear-all
   setup-nodes
   setup-spatially-clustered-network
-  set infect_count 0
+  set infected-count 0
   ask one-of turtles
     [ become-infected ]
-;  ask links [ set color white ]
 
   ask facebooks [set color blue]
   ask wechats [set color yellow]
   
-
   reset-ticks
   
+  ;ask links [ set color white ]
   ;debug
   ;ask turtles [ set label who ]
+end
+
+;; run simulation just 1 time
+to go
+  set run-count 1
+    spread-information
+  while [infected-count != last-infected-count][
+    set last-infected-count infected-count
+    spread-information
+    tick
+  ]
+end
+
+;; run simulation n times
+to go+
+  ca
+  set total-runs number-of-runs
+  set run-count 1
+  repeat number-of-runs[
+    oneSimulationCycle 
+    set run-count run-count + 1
+  ]
+end
+
+to oneSimulationCycle
+  clear-network
+  build-network
+  place-originator
+  spread-information
+  while [infected-count != last-infected-count][
+    set last-infected-count infected-count
+    spread-information
+    tick
+  ]
+end
+
+to clear-network
+  clear-links
+  clear-ticks
+  clear-turtles 
+end
+
+;---------------------------------------
+;    Build
+;---------------------------------------
+
+to build-network
+  setup-nodes
+  setup-spatially-clustered-network
+    
+  ask facebooks [set color blue]
+  ask wechats [set color yellow]
+  
+  reset-ticks
 end
 
 to setup-nodes
@@ -38,17 +156,7 @@ to setup-nodes
     ; for visual reasons, we don't put any nodes *too* close to the edges
     setxy (random-xcor * 0.95) (random-ycor * 0.95)
     become-susceptible
-  ;  set virus-check-timer random virus-check-frequency
   ]
-end
-
-to go
-    ifelse tmp_count = tmp
-      [stop]
-      [set tmp tmp_count]
-      
-  spread-virus
-  tick
 end
 
 to setup-spatially-clustered-network
@@ -74,9 +182,20 @@ to setup-spatially-clustered-network
   ]
 end
 
-to spread-virus
+
+
+;---------------------------------------
+;    Transmission Procedures
+;---------------------------------------
+
+to place-originator
+  ask one-of turtles
+    [ become-infected ]
+end
+
+to spread-information
   ask turtles with [infected?]
-    [ ask facebook-neighbors with [not resistant? and not infected? ]
+    [ ask link-neighbors with [not resistant? and not infected? ]
       
         [ ifelse random-float 100 < virus-spread-chance
             [ become-infected ] 
@@ -88,27 +207,37 @@ to spread-virus
     ]
 end
 
+;---------------------------------------
+;    Turtle Procedure
+;---------------------------------------
+
 to become-infected  ;; turtle procedure
   set infected? true
   set resistant? false
-  set color green
-  set infect_count (infect_count + 1)
-  set tmp_count infect_count
+  
+  set infected-count (infected-count + 1)
+  
   set shape "face happy"
+  set color green
 end
 
 to become-susceptible  ;; turtle procedure
-  
   set infected? false
   set resistant? false
+  
   set color gray
+  set shape "face neutral"
 end
 
 to become-resistant  ;; turtle procedure
   set infected? false
   set resistant? true
+  
+  ;ask my-links [  set thickness thickness + 0.3]
+  ;ask my-links [ set color gray - 2 ]
+  
   set color red
-  ask my-links [ set color gray - 2 ]
+  set shape "face sad"
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -139,15 +268,15 @@ ticks
 30.0
 
 SLIDER
-15
-81
-193
-114
+8
+175
+186
+208
 number-of-nodes
 number-of-nodes
 4
-500
-44
+1000
+114
 1
 1
 NIL
@@ -177,7 +306,7 @@ BUTTON
 49
 GO
 go
-T
+NIL
 1
 T
 OBSERVER
@@ -188,10 +317,10 @@ NIL
 1
 
 SLIDER
-5
-131
-201
-164
+8
+214
+204
+247
 average-node-degree
 average-node-degree
 2
@@ -203,25 +332,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-174
-190
-207
+8
+252
+193
+285
 virus-spread-chance
 virus-spread-chance
 1
 100
-71
+45
 1
 1
 NIL
 HORIZONTAL
 
 PLOT
-772
-235
-972
-385
+658
+137
+858
+287
 plot 1
 NIL
 NIL
@@ -236,15 +365,86 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot count turtles with [infected?]"
 
 MONITOR
-38
-255
-148
-300
+661
+11
+771
+56
 number of links
 count links
 17
 1
 11
+
+MONITOR
+661
+69
+748
+114
+infect count
+infected-count / run-count
+17
+1
+11
+
+MONITOR
+758
+69
+839
+114
+coverage %
+round (100 * ((infected-count / number-of-nodes) / run-count))
+17
+1
+11
+
+BUTTON
+122
+59
+186
+92
+NIL
+GO+
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+10
+110
+182
+143
+number-of-runs
+number-of-runs
+10
+100
+10
+10
+1
+NIL
+HORIZONTAL
+
+BUTTON
+7
+60
+112
+93
+NIL
+load-igraph
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
