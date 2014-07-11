@@ -1,15 +1,18 @@
 undirected-link-breed [facebooks facebook]
-undirected-link-breed [wechats wechat]
+undirected-link-breed [twitters twitter]
 
 turtles-own
 [
   infected?           ;; if true, the turtle is infectious
   resistant?          ;; if true, the turtle can't be infected
+  
+  received-from-network ;; from which network received the message
 ]
 
 
 
 globals [
+  total-num-nodes
   infected-count 
   last-infected-count 
   total-runs 
@@ -21,40 +24,74 @@ globals [
 ;    Simulation Life Cycle
 ;---------------------------------------
 
-to load-igraph
+to setup
   ca
+  set-default-shape turtles "circle"
+  set infected-count 0
+
+  ask facebooks [set color blue]
+  ask twitters [set color yellow]
+  reset-ticks
+  
+  loadNetwork
+  
+  ;; clean graph
+  repeat 5
+  [
+    layout-spring turtles links 0.3 (world-width / (sqrt total-num-nodes)) 1
+  ]
+  
+end
+
+to loadNetwork
   let arr []
   let arr_nodes []
   let arr_edges []
   
-  ;; read file
-  file-open "a.txt"
+  ;; read file network 1
+  file-open "corpus/SF_n100_e197_0.dot"
   while [ not file-at-end? ] [
     set arr lput file-read-line arr
   ]
   file-close
   
-  ;; setup arrays
+  ;; classify information network 1
   set arr filter [not (member? "{" ?) and not (member? "}" ?) and not (member? "igraph" ?)] arr
   set arr_nodes filter [(member? ";" ?) and not (member? " -- " ?) ] arr
   set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
   
-  ;; build graph
-  igraph-create-nodes arr_nodes
-  igraph-connect arr_edges
+  set total-num-nodes (length arr_nodes)
   
-  ;; clean graph
-  repeat 10
-  [
-    layout-spring turtles links 0.3 (world-width / (sqrt number-of-nodes)) 1
+  ;; build graph network 1
+  igraph-create-nodes arr_nodes
+  igraph-create-edges arr_edges 1
+  
+  
+  ;; read file network 2
+  set arr []
+  file-open "corpus/ER_n100_e200_0.dot"
+  while [ not file-at-end? ] [
+    set arr lput file-read-line arr
   ]
+  file-close
+  
+  ;; classify information network 2
+  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
+  igraph-create-edges arr_edges 2
+  
+  ask facebooks [set color blue]
+  ask twitters [set color yellow]
+  
 end
 
 to igraph-create-nodes [arr_nodes]
-    crt length arr_nodes [ setxy (random-xcor * 0.95) (random-ycor * 0.95) ]
+    crt length arr_nodes [ 
+      setxy (random-xcor * 0.95) (random-ycor * 0.95) 
+      become-susceptible
+    ]
 end
 
-to igraph-connect [arr_edges]
+to igraph-create-edges [arr_edges edge_type]
   
   foreach arr_edges [
     if member? " -- " ?[ 
@@ -66,37 +103,21 @@ to igraph-connect [arr_edges]
       let turtle1 turtle (read-from-string t1)
       let turtle2 turtle (read-from-string t2)
       
-      if is-turtle? turtle1
-      [ask turtle1 [ create-link-with turtle2 ]]
-
-      
+      if is-turtle? turtle1[
+        
+        ifelse edge_type = 1
+        [ask turtle1 [ create-facebook-with turtle2 ]]
+        [ask turtle1 [ create-twitter-with turtle2 ]]
+        
+      ]
     ]
   ]
 end
   
 
-;; Just show an idea of how the network is constructed
-;; nothing to do with our simulation
-to setup
-  clear-all
-  setup-nodes
-  setup-spatially-clustered-network
-  set infected-count 0
-  ask one-of turtles
-    [ become-infected ]
-
-  ask facebooks [set color blue]
-  ask wechats [set color yellow]
-  
-  reset-ticks
-  
-  ;ask links [ set color white ]
-  ;debug
-  ;ask turtles [ set label who ]
-end
-
 ;; run simulation just 1 time
 to go
+  place-originator
   set run-count 1
     spread-information
   while [infected-count != last-infected-count][
@@ -108,7 +129,6 @@ end
 
 ;; run simulation n times
 to go+
-  ca
   set total-runs number-of-runs
   set run-count 1
   repeat number-of-runs[
@@ -119,7 +139,6 @@ end
 
 to oneSimulationCycle
   clear-network
-  build-network
   place-originator
   spread-information
   while [infected-count != last-infected-count][
@@ -130,57 +149,15 @@ to oneSimulationCycle
 end
 
 to clear-network
-  clear-links
-  clear-ticks
-  clear-turtles 
+  reset-ticks
+  ask turtles [become-susceptible]
 end
 
 ;---------------------------------------
 ;    Build
 ;---------------------------------------
 
-to build-network
-  setup-nodes
-  setup-spatially-clustered-network
-    
-  ask facebooks [set color blue]
-  ask wechats [set color yellow]
-  
-  reset-ticks
-end
 
-to setup-nodes
-  set-default-shape turtles "circle"
-  crt number-of-nodes
-  [
-    ; for visual reasons, we don't put any nodes *too* close to the edges
-    setxy (random-xcor * 0.95) (random-ycor * 0.95)
-    become-susceptible
-  ]
-end
-
-to setup-spatially-clustered-network
-  let num-links (average-node-degree * number-of-nodes) / 2
-  while [count links < num-links ]
-  [
-    ask one-of turtles
-    [
-      let choice (min-one-of (other turtles with [not link-neighbor? myself])
-                   [distance myself])
-
-      if choice != nobody [ 
-        ifelse random 2 = 0
-          [create-facebook-with choice]
-          [create-wechat-with choice] 
-        ]
-    ]
-  ]
-  ;  tries to get the nodes as far as possible from each other, in order to avoid crowding
-  repeat 10
-  [
-    layout-spring turtles links 0.3 (world-width / (sqrt number-of-nodes)) 1
-  ]
-end
 
 
 
@@ -190,36 +167,81 @@ end
 
 to place-originator
   ask one-of turtles
-    [ become-infected ]
+    [ become-infected 0
+      set color pink
+      ]
 end
 
+;;the network from where node receive the message
+;;has the proity to spread
 to spread-information
-  ask turtles with [infected?]
-    [ ask link-neighbors with [not resistant? and not infected? ]
-      
-        [ ifelse random-float 100 < virus-spread-chance
-            [ become-infected ] 
-            [become-resistant]
-            
-            ;debug
-            ;show facebook-neighbors
-        ] 
-    ]
+  ask turtles with [infected?][  
+    
+    ;;message received from network 1
+     if received-from-network = 1[
+       ask facebook-neighbors with [not resistant? and not infected? ][
+         ifelse random-float 100 < prob-layer1-layer1
+            [become-infected 1] 
+            [become-resistant]  
+       ]
+       ask twitter-neighbors with [not resistant? and not infected? ][
+         ifelse random-float 100 < prob-layer1-layer2
+            [become-infected 2] 
+            [become-resistant]  
+       ]
+     ]
+     
+     ;;message received from network 2
+     if received-from-network = 2[
+       ask twitter-neighbors with [not resistant? and not infected? ][
+         ifelse random-float 100 < prob-layer2-layer2
+            [become-infected 2] 
+            [become-resistant]  
+       ]
+       ask facebook-neighbors with [not resistant? and not infected? ][
+         ifelse random-float 100 < prob-layer2-layer1
+            [become-infected 1] 
+            [become-resistant]  
+       ] 
+     ]
+     
+     ;;message originator
+     if received-from-network = 0[
+       ask twitter-neighbors with [not resistant? and not infected? ][
+         ifelse random-float 100 < prob-layer2-layer2
+            [become-infected 2] 
+            [become-resistant]  
+       ]
+       ask facebook-neighbors with [not resistant? and not infected? ][
+         ifelse random-float 100 < prob-layer1-layer1
+            [become-infected 1] 
+            [become-resistant]  
+       ] 
+     ]
+     
+  ] 
+end
+
+to spread-from-to [layerA layerB]
+  
 end
 
 ;---------------------------------------
 ;    Turtle Procedure
 ;---------------------------------------
 
-to become-infected  ;; turtle procedure
+to become-infected [from] ;; turtle procedure
   set infected? true
   set resistant? false
+  set received-from-network from
   
   set infected-count (infected-count + 1)
   
   set shape "face happy"
   set color green
 end
+
+
 
 to become-susceptible  ;; turtle procedure
   set infected? false
@@ -267,21 +289,6 @@ GRAPHICS-WINDOW
 ticks
 30.0
 
-SLIDER
-8
-175
-186
-208
-number-of-nodes
-number-of-nodes
-4
-1000
-114
-1
-1
-NIL
-HORIZONTAL
-
 BUTTON
 14
 15
@@ -315,36 +322,6 @@ NIL
 NIL
 NIL
 1
-
-SLIDER
-8
-214
-204
-247
-average-node-degree
-average-node-degree
-2
-20
-6
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-8
-252
-193
-285
-virus-spread-chance
-virus-spread-chance
-1
-100
-45
-1
-1
-NIL
-HORIZONTAL
 
 PLOT
 658
@@ -392,7 +369,7 @@ MONITOR
 839
 114
 coverage %
-round (100 * ((infected-count / number-of-nodes) / run-count))
+round (100 * ((infected-count / total-num-nodes) / run-count))
 17
 1
 11
@@ -425,6 +402,66 @@ number-of-runs
 100
 10
 10
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+303
+183
+336
+prob-layer1-layer1
+prob-layer1-layer1
+0
+100
+25
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+11
+346
+184
+379
+prob-layer1-layer2
+prob-layer1-layer2
+0
+100
+0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+12
+394
+185
+427
+prob-layer2-layer2
+prob-layer2-layer2
+0
+100
+0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+12
+434
+185
+467
+prob-layer2-layer1
+prob-layer2-layer1
+0
+100
+0
+1
 1
 NIL
 HORIZONTAL
