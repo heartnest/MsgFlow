@@ -3,9 +3,8 @@ undirected-link-breed [twitters twitter]
 
 turtles-own
 [
-  infected?           ;; if true, the turtle is infectious
-  resistant?          ;; if true, the turtle can't be infected
-  
+  received?           ;; if true, the turtle is infectious
+  sent?
   received-from-network ;; from which network received the message
 ]
 
@@ -14,11 +13,11 @@ turtles-own
 globals [
   total-num-nodes
   
-  layer1-infected-count 
-  layer2-infected-count 
+  layer1-received-count 
+  layer2-received-count 
   
-  infected-count 
-  last-infected-count 
+  received-count 
+  last-received-count 
   
   total-runs 
   run-count
@@ -30,9 +29,13 @@ globals [
 ;---------------------------------------
 
 to setup
+  
   ca
+  
+  random-seed 137
+  
   set-default-shape turtles "circle"
-  set infected-count 0
+  set received-count 0
 
   reset-ticks
   
@@ -52,7 +55,7 @@ to loadNetwork
   let arr_edges []
   
   ;; read file network 1
-  file-open "corpus/SF_n100_e197_0.dot"
+  file-open "corpus/ER_n100_e200_0.dot"
   while [ not file-at-end? ] [
     set arr lput file-read-line arr
   ]
@@ -72,7 +75,7 @@ to loadNetwork
   
   ;; read file network 2
   set arr []
-  file-open "corpus/ER_n100_e200_0.dot"
+  file-open "corpus/SF_n500_e1494_0.dot"
   while [ not file-at-end? ] [
     set arr lput file-read-line arr
   ]
@@ -90,7 +93,7 @@ end
 to igraph-create-nodes [arr_nodes]
     crt length arr_nodes [ 
       setxy (random-xcor * 0.95) (random-ycor * 0.95) 
-      become-susceptible
+      become-inactive
     ]
 end
 
@@ -139,8 +142,8 @@ end
 
 to oneSimulationCycle
   spread-information
-  while [infected-count != last-infected-count][
-    set last-infected-count infected-count
+  while [received-count != last-received-count][
+    set last-received-count received-count
     spread-information
     tick
   ]
@@ -148,7 +151,7 @@ end
 
 to clear-network
   reset-ticks
-  ask turtles [become-susceptible]
+  ask turtles [become-inactive]
 end
 
 ;---------------------------------------
@@ -165,7 +168,7 @@ end
 
 to place-originator
   ask one-of turtles
-    [ become-infected 0
+    [ become-informed 0
       set color pink
       ]
 end
@@ -175,71 +178,64 @@ end
 ;;the network from where node receive the message
 ;;has the proity to spread
 to spread-information
-  ask turtles with [infected?][  
+  ask turtles with [received? and not sent?][  
+    
+    set sent? true
     
     ;;message received from network 1
      if received-from-network = 1[
-       ask facebook-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer1-layer1
-            [become-infected 1] 
-            [become-resistant]  
+       ask facebook-neighbors with [not received?][
+         if random-float 100 < prob-layer1-layer1
+            [become-informed 1]  
        ]
-       ask twitter-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer1-layer2
-            [become-infected 2] 
-            [become-resistant]  
+       ask twitter-neighbors with [not received?][
+         if random-float 100 < prob-layer1-layer2
+            [become-informed 2] 
        ]
      ]
      
      ;;message received from network 2
      if received-from-network = 2[
-       ask twitter-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer2-layer2
-            [become-infected 2] 
-            [become-resistant]  
+       ask twitter-neighbors with [not received?][
+         if random-float 100 < prob-layer2-layer2
+            [become-informed 2]  
        ]
-       ask facebook-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer2-layer1
-            [become-infected 1] 
-            [become-resistant]  
+       ask facebook-neighbors with [not received?][
+         if random-float 100 < prob-layer2-layer1
+            [become-informed 1]  
        ] 
      ]
      
      ;;message originator
      if received-from-network = 0[
-       ask twitter-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer2-layer2
-            [become-infected 2] 
-            [become-resistant]  
+       ask twitter-neighbors with [not received?][
+         if random-float 100 < prob-layer2-layer2
+            [become-informed 2]   
        ]
-       ask facebook-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer1-layer1
-            [become-infected 1] 
-            [become-resistant]  
+       ask facebook-neighbors with [not received?][
+         if random-float 100 < prob-layer1-layer1
+            [become-informed 1]  
        ] 
      ]
      
   ] 
 end
 
-to spread-from-to [layerA layerB]
-  
-end
+
 
 ;---------------------------------------
 ;    Turtle Procedure
 ;---------------------------------------
 
-to become-infected [from] ;; turtle procedure
-  set infected? true
-  set resistant? false
+to become-informed [from] ;; turtle procedure
+  set received? true
   set received-from-network from
   
   ifelse from = 1
-  [set layer1-infected-count (layer1-infected-count + 1)]
-  [set layer2-infected-count (layer2-infected-count + 1)]
+  [set layer1-received-count (layer1-received-count + 1)]
+  [set layer2-received-count (layer2-received-count + 1)]
   
-  set infected-count (infected-count + 1)
+  set received-count (received-count + 1)
   
   set shape "face happy"
   set color green
@@ -247,32 +243,21 @@ end
 
 
 
-to become-susceptible  ;; turtle procedure
-  set infected? false
-  set resistant? false
-  
+to become-inactive  ;; turtle procedure
+  set received? false
+  set sent? false
+
   set color gray
   set shape "face neutral"
-end
-
-to become-resistant  ;; turtle procedure
-  set infected? false
-  set resistant? true
-  
-  ;ask my-links [  set thickness thickness + 0.3]
-  ;ask my-links [ set color gray - 2 ]
-  
-  set color red
-  set shape "face sad"
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-649
-470
-16
-16
+701
+522
+18
+18
 13.0
 1
 10
@@ -283,10 +268,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--16
-16
--16
-16
+-18
+18
+-18
+18
 0
 0
 1
@@ -311,11 +296,11 @@ NIL
 1
 
 BUTTON
-121
-16
-184
-49
-GO
+4
+63
+206
+96
+Add originator and go once
 go
 NIL
 1
@@ -328,13 +313,13 @@ NIL
 1
 
 PLOT
-658
-137
-858
-287
-plot 1
-NIL
-NIL
+715
+128
+915
+278
+received - ticks
+tick
+received count
 0.0
 10.0
 0.0
@@ -343,46 +328,46 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles with [infected?]"
+"default" 1.0 0 -16777216 true "" "plot count turtles with[ received?]"
 
 MONITOR
-661
-11
-771
-56
-number of links
+715
+10
+825
+55
+total edges
 count links
 17
 1
 11
 
 MONITOR
-661
-69
-748
-114
-infect count
-infected-count / run-count
+716
+71
+820
+116
+received count
+received-count / run-count
 17
 1
 11
 
 MONITOR
-758
-69
-839
-114
+825
+71
+906
+116
 coverage %
-round (100 * ((infected-count / total-num-nodes) / run-count))
+round (100 * ((received-count / total-num-nodes) / run-count))
 17
 1
 11
 
 BUTTON
-122
-59
-186
-92
+101
+15
+165
+48
 NIL
 GO+
 NIL
@@ -404,90 +389,90 @@ number-of-runs
 number-of-runs
 10
 100
-20
+100
 10
 1
 NIL
 HORIZONTAL
 
 SLIDER
-10
+9
+176
+182
+209
+prob-layer1-layer1
+prob-layer1-layer1
+0
+100
+50
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+8
+220
+181
+253
+prob-layer1-layer2
+prob-layer1-layer2
+0
+100
+0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+9
+262
+182
+295
+prob-layer2-layer2
+prob-layer2-layer2
+0
+100
+0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+9
 303
-183
+182
 336
-prob-layer1-layer1
-prob-layer1-layer1
-0
-100
-11
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-11
-346
-184
-379
-prob-layer1-layer2
-prob-layer1-layer2
-0
-100
-9
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-12
-394
-185
-427
-prob-layer2-layer2
-prob-layer2-layer2
-0
-100
-90
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-12
-434
-185
-467
 prob-layer2-layer1
 prob-layer2-layer1
 0
 100
-9
+0
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-662
-320
-791
-365
-infected-by-layer1
-layer1-infected-count / run-count
+715
+289
+844
+334
+received-in-layer1
+layer1-received-count / run-count
 17
 1
 11
 
 MONITOR
-664
-379
-793
-424
-infected-by-layer2
-layer2-infected-count / run-count
+715
+349
+844
+394
+received-in-layer2
+layer2-received-count / run-count
 17
 1
 11
