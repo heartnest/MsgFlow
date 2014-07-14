@@ -1,23 +1,25 @@
 undirected-link-breed [facebooks facebook]
 undirected-link-breed [twitters twitter]
 
-turtles-own
-[
+turtles-own[
+  
   infected?           ;; if true, the turtle is infectious
   resistant?          ;; if true, the turtle can't be infected
   
   received-from-network ;; from which network received the message
+  interest-level        ;; interest in the msg is distributed randoml
+  
 ]
 
 
 
 globals [
-  total-num-nodes
+  total-num-nodes   
   
   layer1-infected-count 
   layer2-infected-count 
   
-  infected-count 
+  infected-count
   last-infected-count 
   
   total-runs 
@@ -91,6 +93,7 @@ to igraph-create-nodes [arr_nodes]
     crt length arr_nodes [ 
       setxy (random-xcor * 0.95) (random-ycor * 0.95) 
       become-susceptible
+      set interest-level random 100
     ]
 end
 
@@ -170,8 +173,6 @@ to place-originator
       ]
 end
 
-;;probablity matrix mode
-;;
 ;;the network from where node receive the message
 ;;has the proity to spread
 to spread-information
@@ -179,46 +180,55 @@ to spread-information
     
     ;;message received from network 1
      if received-from-network = 1[
-       ask facebook-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer1-layer1
-            [become-infected 1] 
-            [become-resistant]  
-       ]
-       ask twitter-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer1-layer2
-            [become-infected 2] 
-            [become-resistant]  
-       ]
-     ]
+        ask facebook-neighbors with [not resistant? and not infected? ][           ifelse interest-level > interest-threshold             [become-infected 1]
+               [become-resistant] 
+          ]
+       
+      if interest-threshold > favorite-threshold[
+          ask twitter-neighbors with [not resistant? and not infected? ][
+            ifelse interest-level < interest-threshold
+               [become-infected 2] 
+               [become-resistant]  
+          ]
+      ]
+    ]
      
      ;;message received from network 2
      if received-from-network = 2[
        ask twitter-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer2-layer2
+         ifelse interest-level > interest-threshold
             [become-infected 2] 
             [become-resistant]  
        ]
-       ask facebook-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer2-layer1
-            [become-infected 1] 
-            [become-resistant]  
-       ] 
+       if interest-threshold > favorite-threshold[
+         ask facebook-neighbors with [not resistant? and not infected? ][
+           ifelse interest-level > interest-threshold
+              [become-infected 1] 
+              [become-resistant]  
+         ] 
+       ]
      ]
      
      ;;message originator
      if received-from-network = 0[
-       ask twitter-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer2-layer2
-            [become-infected 2] 
-            [become-resistant]  
+       
+       ;; random 2 produces 0, 1
+       ifelse random 2 = 0 [
+       
+           ask twitter-neighbors with [not resistant? and not infected? ][
+             ifelse interest-level > interest-threshold
+                [become-infected 2] 
+                [become-resistant]  
+           ]
        ]
-       ask facebook-neighbors with [not resistant? and not infected? ][
-         ifelse random-float 100 < prob-layer1-layer1
-            [become-infected 1] 
-            [become-resistant]  
-       ] 
+       [
+           ask facebook-neighbors with [not resistant? and not infected? ][
+             ifelse interest-level > interest-threshold
+                [become-infected 1] 
+                [become-resistant]  
+           ]
+       ]
      ]
-     
   ] 
 end
 
@@ -415,11 +425,11 @@ SLIDER
 303
 183
 336
-prob-layer1-layer1
-prob-layer1-layer1
+interest-threshold
+interest-threshold
 0
 100
-11
+65
 1
 1
 NIL
@@ -430,41 +440,11 @@ SLIDER
 346
 184
 379
-prob-layer1-layer2
-prob-layer1-layer2
-0
+favorite-threshold
+favorite-threshold
+interest-threshold
 100
-9
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-12
-394
-185
-427
-prob-layer2-layer2
-prob-layer2-layer2
-0
-100
-90
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-12
-434
-185
-467
-prob-layer2-layer1
-prob-layer2-layer1
-0
-100
-9
+97
 1
 1
 NIL
@@ -488,6 +468,17 @@ MONITOR
 424
 infected-by-layer2
 layer2-infected-count / run-count
+17
+1
+11
+
+MONITOR
+785
+14
+970
+59
+number of interested nodes
+count turtles with [ interest-level > 50 ]
 17
 1
 11
