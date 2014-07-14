@@ -7,7 +7,7 @@ from igraph import *
 
 global networkType
 
-networkType = 2
+networkType = 1
 number_of_graphs = 1
 
 #============================
@@ -26,7 +26,7 @@ def genGraphFile(nth_file):
 
 		if networkType == 1:
 			#Erdos_Renyi(n, p, m, directed=False, loops=False)
-			g = Graph.Erdos_Renyi(n=500, m=1500,directed=False, loops=False)
+			g = Graph.Erdos_Renyi(n=100, m=200,directed=False, loops=False)
 			networkName = 'ER'
 
 		elif networkType == 2:
