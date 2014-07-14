@@ -6,6 +6,7 @@ turtles-own
   received?           ;; if true, the turtle is infectious
   sent?
   received-from-network ;; from which network received the message
+  received-from-node
 ]
 
 
@@ -18,6 +19,9 @@ globals [
   
   received-count 
   last-received-count 
+  
+  layer1-msg-count
+  layer2-msg-count
   
   total-runs 
   run-count
@@ -32,10 +36,9 @@ to setup
   
   ca
   
-  random-seed 137
+  random-seed 109
   
   set-default-shape turtles "circle"
-  set received-count 0
 
   reset-ticks
   
@@ -75,7 +78,7 @@ to loadNetwork
   
   ;; read file network 2
   set arr []
-  file-open "corpus/SF_n500_e1494_0.dot"
+  file-open "corpus/ER_n100_e200_1.dot"
   while [ not file-at-end? ] [
     set arr lput file-read-line arr
   ]
@@ -123,6 +126,8 @@ end
 
 ;; run simulation just 1 time
 to go
+  clear-count
+  clear-network
   set run-count 1
   place-originator
   oneSimulationCycle
@@ -130,6 +135,7 @@ end
 
 ;; run simulation n times
 to go+
+  clear-count
   set total-runs number-of-runs
   set run-count 1
   repeat number-of-runs[
@@ -154,11 +160,13 @@ to clear-network
   ask turtles [become-inactive]
 end
 
-;---------------------------------------
-;    Build
-;---------------------------------------
-
-
+to clear-count
+  set received-count 0
+  set layer1-msg-count 0
+  set layer2-msg-count 0
+  set layer1-received-count 0
+  set layer2-received-count 0
+end
 
 
 
@@ -167,60 +175,99 @@ end
 ;---------------------------------------
 
 to place-originator
-  ask one-of turtles
-    [ become-informed 0
-      set color pink
-      ]
+  ask one-of turtles[ 
+      set color pink    
+      become-informed originator-layer
+  ]
 end
 
-;;probablity matrix mode
+
+;; gossip algorithm spread mode
 ;;
-;;the network from where node receive the message
-;;has the proity to spread
+;;
 to spread-information
   ask turtles with [received? and not sent?][  
     
+    let myid who
     set sent? true
     
-    ;;message received from network 1
+    ;;msg layer 1 - layer 1 & layer 1 - layer 2
      if received-from-network = 1[
-       ask facebook-neighbors with [not received?][
-         if random-float 100 < prob-layer1-layer1
-            [become-informed 1]  
+       ;show count facebook-neighbors with [myid != received-from-node] 
+       ask facebook-neighbors  [
+         
+
+         if random-float 100 < prob-layer1-layer1 [
+           print (word "my id " myid " received from." received-from-node)
+           spread-on-layer1 myid
+         ]  
        ]
-       ask twitter-neighbors with [not received?][
-         if random-float 100 < prob-layer1-layer2
-            [become-informed 2] 
+       ask twitter-neighbors with [myid != received-from-node] [
+         if random-float 100 < prob-layer1-layer2[
+           spread-on-layer2 myid
+         ] 
        ]
      ]
      
      ;;message received from network 2
      if received-from-network = 2[
-       ask twitter-neighbors with [not received?][
-         if random-float 100 < prob-layer2-layer2
-            [become-informed 2]  
+       ask twitter-neighbors with [myid != received-from-node] [
+         if random-float 100 < prob-layer2-layer2[
+           spread-on-layer2 myid
+         ]
        ]
-       ask facebook-neighbors with [not received?][
-         if random-float 100 < prob-layer2-layer1
-            [become-informed 1]  
+       ask facebook-neighbors with [myid != received-from-node]  [
+         if random-float 100 < prob-layer2-layer1[
+            spread-on-layer1 myid
+         ]
        ] 
      ]
      
-     ;;message originator
+     ;;message originator both layer
      if received-from-network = 0[
-       ask twitter-neighbors with [not received?][
-         if random-float 100 < prob-layer2-layer2
-            [become-informed 2]   
-       ]
-       ask facebook-neighbors with [not received?][
-         if random-float 100 < prob-layer1-layer1
-            [become-informed 1]  
-       ] 
+       ifelse random 2 = 0[
+         
+          ask twitter-neighbors[
+          if random-float 100 < prob-layer2-layer2
+             [spread-on-layer2 myid] 
+          ]
+          ask facebook-neighbors[
+          if random-float 100 < prob-layer1-layer1
+             [spread-on-layer1 myid] 
+          ] 
+         
+        ]
+       [
+        
+          ask facebook-neighbors[
+           if random-float 100 < prob-layer1-layer1
+              [spread-on-layer1 myid] 
+           ]
+          ask twitter-neighbors[
+           if random-float 100 < prob-layer2-layer2
+              [spread-on-layer2 myid] 
+           ] 
+        
+        ]       
      ]
-     
   ] 
 end
 
+to spread-on-layer1 [fatherid]
+  set layer1-msg-count layer1-msg-count + 1
+  if not received?
+  [become-informed 1
+    set received-from-node fatherid
+  ]
+end
+
+to spread-on-layer2 [fatherid]
+  set layer2-msg-count layer2-msg-count + 1
+  if not received?
+  [become-informed 2
+    set received-from-node fatherid
+  ]
+end
 
 
 ;---------------------------------------
@@ -235,7 +282,12 @@ to become-informed [from] ;; turtle procedure
   [set layer1-received-count (layer1-received-count + 1)]
   [set layer2-received-count (layer2-received-count + 1)]
   
-  set received-count (received-count + 1)
+  if from = 0[
+    set layer2-received-count (layer2-received-count + 1)
+    set layer1-received-count (layer1-received-count + 1)
+  ]
+  
+  set received-count (layer1-received-count + layer2-received-count)
   
   set shape "face happy"
   set color green
@@ -246,7 +298,7 @@ end
 to become-inactive  ;; turtle procedure
   set received? false
   set sent? false
-
+  
   set color gray
   set shape "face neutral"
 end
@@ -331,24 +383,13 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot count turtles with[ received?]"
 
 MONITOR
-715
-10
-825
-55
-total edges
-count links
-17
-1
-11
-
-MONITOR
 716
 71
 820
 116
 received count
 received-count / run-count
-17
+3
 1
 11
 
@@ -359,7 +400,7 @@ MONITOR
 116
 coverage %
 round (100 * ((received-count / total-num-nodes) / run-count))
-17
+3
 1
 11
 
@@ -381,10 +422,10 @@ NIL
 1
 
 SLIDER
-10
-110
-182
-143
+15
+129
+187
+162
 number-of-runs
 number-of-runs
 10
@@ -396,10 +437,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-9
-176
-182
-209
+16
+326
+189
+359
 prob-layer1-layer1
 prob-layer1-layer1
 0
@@ -411,10 +452,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-8
-220
-181
-253
+17
+452
+190
+485
 prob-layer1-layer2
 prob-layer1-layer2
 0
@@ -426,10 +467,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-9
-262
-182
-295
+16
+364
+189
+397
 prob-layer2-layer2
 prob-layer2-layer2
 0
@@ -441,10 +482,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-9
-303
-182
-336
+17
+489
+190
+522
 prob-layer2-layer1
 prob-layer2-layer1
 0
@@ -462,7 +503,7 @@ MONITOR
 334
 received-in-layer1
 layer1-received-count / run-count
-17
+3
 1
 11
 
@@ -473,7 +514,102 @@ MONITOR
 394
 received-in-layer2
 layer2-received-count / run-count
+3
+1
+11
+
+TEXTBOX
+18
+289
+168
+317
+Trasmission probability in each layer
+11
+0.0
+1
+
+TEXTBOX
 17
+418
+167
+446
+Cross layer Trasmission probability
+11
+0.0
+1
+
+CHOOSER
+17
+224
+155
+269
+originator-layer
+originator-layer
+0 1 2
+0
+
+TEXTBOX
+17
+186
+167
+214
+To which layer originator will spread (0 means both)
+11
+0.0
+1
+
+MONITOR
+714
+13
+771
+58
+nodes
+count turtles
+17
+1
+11
+
+MONITOR
+777
+13
+839
+58
+edges 1
+count facebooks
+17
+1
+11
+
+MONITOR
+844
+13
+906
+58
+edges 2
+count twitters
+17
+1
+11
+
+MONITOR
+716
+410
+805
+455
+#msg layer1
+layer1-msg-count / run-count
+3
+1
+11
+
+MONITOR
+814
+410
+903
+455
+#msg layer2
+layer2-msg-count / run-count
+3
 1
 11
 
