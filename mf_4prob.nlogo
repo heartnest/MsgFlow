@@ -61,7 +61,7 @@ to loadNetwork
   let arr_edges []
   
   ;; read file network 1
-  file-open "corpus/ER_n10_e13_0.dot"
+  file-open "corpus/ER_n100_e200_0.dot"
   while [ not file-at-end? ] [
     set arr lput file-read-line arr
   ]
@@ -80,16 +80,16 @@ to loadNetwork
   
   
   ;; read file network 2
-  ;set arr []
-  ;file-open "corpus/ER_n100_e200_1.dot"
-  ;while [ not file-at-end? ] [
-  ;  set arr lput file-read-line arr
-  ;]
-  ;file-close
+  set arr []
+  file-open "corpus/ER_n100_e200_1.dot"
+  while [ not file-at-end? ] [
+    set arr lput file-read-line arr
+  ]
+  file-close
   
   ;; classify information network 2
-  ;set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
-  ;igraph-create-edges arr_edges 2
+  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
+  igraph-create-edges arr_edges 2
   
   ask facebooks [set color blue]
   ask twitters [set color yellow]
@@ -179,7 +179,6 @@ end
 
 to place-originator
   ask one-of turtles[ 
-       
       become-informed originator-layer
       set color pink   
   ]
@@ -292,7 +291,6 @@ to become-informed [from] ;; turtle procedure
     set layer1-received-count (layer1-received-count + 1)
   ]
   
-  ;set received-count (layer1-received-count + layer2-received-count)
   set received-count received-count + 1
   
   set shape "face happy"
@@ -451,7 +449,7 @@ prob-layer1-layer1
 prob-layer1-layer1
 0
 100
-50
+0
 1
 1
 NIL
@@ -481,7 +479,7 @@ prob-layer2-layer2
 prob-layer2-layer2
 0
 100
-0
+50
 1
 1
 NIL
@@ -552,7 +550,7 @@ CHOOSER
 originator-layer
 originator-layer
 0 1 2
-0
+2
 
 TEXTBOX
 17

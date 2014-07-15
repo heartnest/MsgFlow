@@ -7,7 +7,7 @@ from igraph import *
 
 global networkType
 
-networkType = 1
+networkType = 2
 number_of_graphs = 1
 
 #============================
@@ -26,12 +26,12 @@ def genGraphFile(nth_file):
 
 		if networkType == 1:
 			#Erdos_Renyi(n, p, m, directed=False, loops=False)
-			g = Graph.Erdos_Renyi(n=10, m=13,directed=False, loops=False)
+			g = Graph.Erdos_Renyi(n=100, m=200,directed=False, loops=False)
 			networkName = 'ER'
 
 		elif networkType == 2:
 			#Barabasi(n, m, outpref=False, directed=False, power=1, zero_appeal=1, implementation="psumtree", start_from=None)
-			g = Graph.Barabasi(n=500, m=3, outpref=False, directed=False, power=1, zero_appeal=1, implementation="psumtree", start_from=None)
+			g = Graph.Barabasi(n=100, m=2, outpref=False, directed=False, power=1, zero_appeal=1, implementation="psumtree", start_from=None)
 			networkName = 'SF'
 
 		elif networkType == 3:
