@@ -85,13 +85,16 @@ end
 
 to experiment-go
   set prob-layer1-layer2 0
+  set prob-layer2-layer1 0
   repeat 101[
     go+
     set list-msg lput (round((layer1-msg-count + layer2-msg-count) / run-count)) list-msg
     set list-coverage lput (round (100 * ((received-count / total-num-nodes) / run-count))) list-coverage
     
-    if prob-layer1-layer2 < 100
-    [set prob-layer1-layer2 prob-layer1-layer2 + 1]
+    if prob-layer1-layer2 < 100[
+      set prob-layer1-layer2 prob-layer1-layer2 + 1
+      set prob-layer2-layer1 prob-layer2-layer1 + 1
+    ]
   ]
 
   file-open "results_weak/msg.txt"
@@ -162,9 +165,12 @@ to gossip-spread
            spread-on-layer1 myid
          ]  
        ]
-       ask twitter-neighbors with [who != myRecFrom][
-         if random-float 100 < prob-layer1-layer2[
-           spread-on-layer2 myid
+       ;; transmit to layer 2
+       if random-float 100 < prob-layer1-layer2[
+         ask twitter-neighbors with [who != myRecFrom][
+           if random-float 100 < prob-layer2-layer2 [
+             spread-on-layer2 myid
+           ]
          ] 
        ]
      ]
@@ -177,10 +183,12 @@ to gossip-spread
            spread-on-layer2 myid
          ]
        ]
-       ask facebook-neighbors with [who != myRecFrom][
-         if random-float 100 < prob-layer2-layer1[
-            spread-on-layer1 myid
-         ]
+       if random-float 100 < prob-layer2-layer1[
+          ask facebook-neighbors with [who != myRecFrom][
+            if random-float 100 < prob-layer1-layer1[
+               spread-on-layer1 myid
+            ]
+          ]
        ] 
      ]
      
@@ -474,7 +482,7 @@ number-of-runs
 number-of-runs
 50
 500
-100
+500
 10
 1
 NIL
@@ -519,7 +527,7 @@ prob-layer2-layer2
 prob-layer2-layer2
 0
 100
-0
+50
 1
 1
 NIL
@@ -534,7 +542,7 @@ prob-layer2-layer1
 prob-layer2-layer1
 0
 100
-0
+100
 1
 1
 NIL
