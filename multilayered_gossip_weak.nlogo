@@ -12,6 +12,9 @@ turtles-own
 
 
 globals [
+  list-msg 
+  list-coverage
+  
   total-num-nodes
   
   layer1-received-count 
@@ -25,6 +28,11 @@ globals [
   
   total-runs 
   run-count
+  
+  networkfile1
+  networkfile2
+  
+  ASN ;average similarity of the neighbor
 ]
 
 
@@ -33,99 +41,25 @@ globals [
 ;---------------------------------------
 
 to setup
-  
   ca
-  
+  set list-msg []
+  set list-coverage []   
+  set networkfile1  "corpus/ER_n100_e200_1.dot"
+  set networkfile2  "corpus/ER_n100_e200_1.dot"
   random-seed 109
-  
   set-default-shape turtles "circle"
-
   reset-ticks
-  
   loadNetwork
-  
+  calcASN
   ;; clean graph
   repeat 5
   [
     layout-spring turtles links 0.3 (world-width / (sqrt total-num-nodes)) 1
   ]
-  
   ;debug
-  ask turtles [ set label who ]
-  
+  ;ask turtles [ set label who ]
 end
 
-to loadNetwork
-  let arr []
-  let arr_nodes []
-  let arr_edges []
-  
-  ;; read file network 1
-  file-open "corpus/ER_n100_e200_0.dot"
-  while [ not file-at-end? ] [
-    set arr lput file-read-line arr
-  ]
-  file-close
-  
-  ;; classify information network 1
-  set arr filter [not (member? "{" ?) and not (member? "}" ?) and not (member? "igraph" ?)] arr
-  set arr_nodes filter [(member? ";" ?) and not (member? " -- " ?) ] arr
-  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
-  
-  set total-num-nodes (length arr_nodes)
-  
-  ;; build graph network 1
-  igraph-create-nodes arr_nodes
-  igraph-create-edges arr_edges 1
-  
-  
-  ;; read file network 2
-  set arr []
-  file-open "corpus/ER_n100_e200_1.dot"
-  while [ not file-at-end? ] [
-    set arr lput file-read-line arr
-  ]
-  file-close
-  
-  ;; classify information network 2
-  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
-  igraph-create-edges arr_edges 2
-  
-  ask facebooks [set color blue]
-  ask twitters [set color yellow]
-  
-end
-
-to igraph-create-nodes [arr_nodes]
-    crt length arr_nodes [ 
-      setxy (random-xcor * 0.95) (random-ycor * 0.95) 
-      become-inactive
-    ]
-end
-
-to igraph-create-edges [arr_edges edge_type]
-  
-  foreach arr_edges [
-    if member? " -- " ?[ 
-      ;show ?
-      let p  position " -- " ?
-      let t1 substring ? 2 p
-      let t2 substring ? (p + 4) (length ? - 1)
-      
-      let turtle1 turtle (read-from-string t1)
-      let turtle2 turtle (read-from-string t2)
-      
-      if is-turtle? turtle1[
-        
-        ifelse edge_type = 1
-        [ask turtle1 [ create-facebook-with turtle2 ]]
-        [ask turtle1 [ create-twitter-with turtle2 ]]
-        
-      ]
-    ]
-  ]
-end
-  
 
 ;; run simulation just 1 time
 to go
@@ -147,6 +81,31 @@ to go+
     oneSimulationCycle 
     set run-count run-count + 1
   ]
+end
+
+to experiment-go
+  set prob-layer1-layer2 0
+  repeat 101[
+    go+
+    set list-msg lput (round((layer1-msg-count + layer2-msg-count) / run-count)) list-msg
+    set list-coverage lput (round (100 * ((received-count / total-num-nodes) / run-count))) list-coverage
+    
+    if prob-layer1-layer2 < 100
+    [set prob-layer1-layer2 prob-layer1-layer2 + 1]
+  ]
+
+  file-open "results_weak/msg.txt"
+  foreach list-msg[
+    file-print ?
+  ]
+  file-close
+  
+  file-open "results_weak/coverage.txt"
+  foreach list-coverage[
+    file-print ?
+  ]
+  file-close
+  
 end
 
 to oneSimulationCycle
@@ -306,6 +265,105 @@ to become-inactive  ;; turtle procedure
   set color gray
   set shape "face neutral"
 end
+
+
+;---------------------------------------
+;   iGraph
+;---------------------------------------
+
+
+
+to loadNetwork
+  let arr []
+  let arr_nodes []
+  let arr_edges []
+  
+  ;; read file network 1
+  file-open networkfile1
+  while [ not file-at-end? ] [
+    set arr lput file-read-line arr
+  ]
+  file-close
+  
+  ;; classify information network 1
+  set arr filter [not (member? "{" ?) and not (member? "}" ?) and not (member? "igraph" ?)] arr
+  set arr_nodes filter [(member? ";" ?) and not (member? " -- " ?) ] arr
+  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
+  
+  set total-num-nodes (length arr_nodes)
+  
+  ;; build graph network 1
+  igraph-create-nodes arr_nodes
+  igraph-create-edges arr_edges 1
+  
+  
+  ;; read file network 2
+  set arr []
+  file-open networkfile2
+  while [ not file-at-end? ] [
+    set arr lput file-read-line arr
+  ]
+  file-close
+  
+  ;; classify information network 2
+  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
+  igraph-create-edges arr_edges 2
+  
+  ask facebooks [set color blue]
+  ask twitters [set color yellow]
+  
+end
+
+to igraph-create-nodes [arr_nodes]
+    crt length arr_nodes [ 
+      setxy (random-xcor * 0.95) (random-ycor * 0.95) 
+      become-inactive
+    ]
+end
+
+to igraph-create-edges [arr_edges edge_type]
+  
+  foreach arr_edges [
+    if member? " -- " ?[ 
+      ;show ?
+      let p  position " -- " ?
+      let t1 substring ? 2 p
+      let t2 substring ? (p + 4) (length ? - 1)
+      
+      let turtle1 turtle (read-from-string t1)
+      let turtle2 turtle (read-from-string t2)
+      
+      if is-turtle? turtle1[
+        
+        ifelse edge_type = 1
+        [ask turtle1 [ create-facebook-with turtle2 ]]
+        [ask turtle1 [ create-twitter-with turtle2 ]]
+        
+      ]
+    ]
+  ]
+end
+  
+
+;---------------------------------------
+;   utilities
+;---------------------------------------
+
+  
+to calcASN
+  let kmi 0
+  let kci 0
+  ask turtles [
+    let myid who
+    
+    let ka count facebook-neighbors
+    let kb count twitter-neighbors
+    let kc count facebook-neighbors with [twitter-neighbor? turtle myid]
+    set kmi kmi + (ka + kb - kc)
+    set kci kci + kc
+  ]
+  set ASN kci / kmi
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -368,29 +426,11 @@ NIL
 NIL
 1
 
-PLOT
-715
-128
-915
-278
-received - ticks
-tick
-received count
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles with[ received?]"
-
 MONITOR
-716
-71
-824
-116
+713
+124
+821
+169
 #node received
 received-count / run-count
 3
@@ -398,10 +438,10 @@ received-count / run-count
 11
 
 MONITOR
-825
-71
-906
-116
+822
+124
+903
+169
 coverage %
 round (100 * ((received-count / total-num-nodes) / run-count))
 3
@@ -426,14 +466,14 @@ NIL
 1
 
 SLIDER
-15
-129
-187
-162
+9
+145
+181
+178
 number-of-runs
 number-of-runs
-10
-100
+50
+500
 100
 10
 1
@@ -449,7 +489,7 @@ prob-layer1-layer1
 prob-layer1-layer1
 0
 100
-0
+50
 1
 1
 NIL
@@ -464,7 +504,7 @@ prob-layer1-layer2
 prob-layer1-layer2
 0
 100
-0
+100
 1
 1
 NIL
@@ -479,7 +519,7 @@ prob-layer2-layer2
 prob-layer2-layer2
 0
 100
-50
+0
 1
 1
 NIL
@@ -501,10 +541,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-715
-289
-844
-334
+712
+341
+841
+386
 received-in-layer1
 layer1-received-count / run-count
 3
@@ -512,10 +552,10 @@ layer1-received-count / run-count
 11
 
 MONITOR
-715
-349
-844
-394
+712
+401
+841
+446
 received-in-layer2
 layer2-received-count / run-count
 3
@@ -550,7 +590,7 @@ CHOOSER
 originator-layer
 originator-layer
 0 1 2
-2
+0
 
 TEXTBOX
 17
@@ -596,26 +636,65 @@ count twitters
 11
 
 MONITOR
-716
-410
-805
-455
+713
+462
+802
+507
 #msg layer1
 layer1-msg-count / run-count
-3
+2
 1
 11
 
 MONITOR
-814
-410
-903
-455
+811
+462
+900
+507
 #msg layer2
 layer2-msg-count / run-count
 3
 1
 11
+
+MONITOR
+714
+72
+922
+117
+Average Similarity of Neighbors
+ASN
+10
+1
+11
+
+MONITOR
+909
+463
+980
+508
+#msg(all)
+(layer1-msg-count + layer2-msg-count) / run-count
+2
+1
+11
+
+BUTTON
+10
+106
+135
+139
+NIL
+experiment-go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
