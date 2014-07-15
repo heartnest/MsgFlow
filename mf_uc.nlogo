@@ -3,8 +3,8 @@ undirected-link-breed [twitters twitter]
 
 turtles-own[
   
-  infected?           ;; if true, the turtle is infectious
-  resistant?          ;; if true, the turtle can't be infected
+  accepted?           ;; if true, the turtle who is interested in the msg received the msg
+  rejected?          ;; if true, the turtle can't be sent any more
   
   received-from-network ;; from which network received the message
   interest-level        ;; interest in the msg is distributed randoml
@@ -16,13 +16,13 @@ turtles-own[
 globals [
   total-num-nodes   
   
-  layer1-infected-count 
-  layer2-infected-count 
+  layer1-accepted-count 
+  layer2-accepted-count 
   
-  infected-count
-  last-infected-count 
+  accepted-count
+  last-accepted-count 
   
-  total-runs 
+ 
   run-count
 ]
 
@@ -33,11 +33,10 @@ globals [
 
 to setup
   ca
+  random-seed 137
   set-default-shape turtles "circle"
-  set infected-count 0
 
-  reset-ticks
-  
+  reset-ticks  
   loadNetwork
   
   ;; clean graph
@@ -45,7 +44,6 @@ to setup
   [
     layout-spring turtles links 0.3 (world-width / (sqrt total-num-nodes)) 1
   ]
-  
 end
 
 to loadNetwork
@@ -92,7 +90,7 @@ end
 to igraph-create-nodes [arr_nodes]
     crt length arr_nodes [ 
       setxy (random-xcor * 0.95) (random-ycor * 0.95) 
-      become-susceptible
+      become-inactive
       set interest-level random 100
     ]
 end
@@ -124,26 +122,24 @@ end
 ;; run simulation just 1 time
 to go
   set run-count 1
-  place-originator
   oneSimulationCycle
 end
 
 ;; run simulation n times
 to go+
-  set total-runs number-of-runs
   set run-count 1
   repeat number-of-runs[
     clear-network
-    place-originator
     oneSimulationCycle 
     set run-count run-count + 1
   ]
 end
 
 to oneSimulationCycle
+  place-originator
   spread-information
-  while [infected-count != last-infected-count][
-    set last-infected-count infected-count
+  while [accepted-count != last-accepted-count][
+    set last-accepted-count accepted-count
     spread-information
     tick
   ]
@@ -151,14 +147,8 @@ end
 
 to clear-network
   reset-ticks
-  ask turtles [become-susceptible]
+  ask turtles [become-inactive]
 end
-
-;---------------------------------------
-;    Build
-;---------------------------------------
-
-
 
 
 
@@ -168,7 +158,7 @@ end
 
 to place-originator
   ask one-of turtles
-    [ become-infected 0
+    [ become-accepted originator-network
       set color pink
       ]
 end
@@ -176,35 +166,37 @@ end
 ;;the network from where node receive the message
 ;;has the proity to spread
 to spread-information
-  ask turtles with [infected?][  
-    
+  ask turtles with [accepted?][  
+    ;print (word "my interest level " interest-level " int tr" interest-threshold " fav tr"  favorite-threshold)
     ;;message received from network 1
      if received-from-network = 1[
-        ask facebook-neighbors with [not resistant? and not infected? ][           ifelse interest-level > interest-threshold             [become-infected 1]
-               [become-resistant] 
+        ask facebook-neighbors with [not rejected? and not accepted? ][           
+          ifelse interest-level > interest-threshold             
+               [become-accepted 1]
+               [become-rejected] 
           ]
        
-      if interest-threshold > favorite-threshold[
-          ask twitter-neighbors with [not resistant? and not infected? ][
-            ifelse interest-level < interest-threshold
-               [become-infected 2] 
-               [become-resistant]  
+      if interest-level > favorite-threshold[
+          ask twitter-neighbors with [not rejected? and not accepted? ][
+            ifelse interest-level > interest-threshold
+               [become-accepted 2] 
+               [become-rejected]  
           ]
       ]
     ]
      
      ;;message received from network 2
      if received-from-network = 2[
-       ask twitter-neighbors with [not resistant? and not infected? ][
+       ask twitter-neighbors with [not rejected? and not accepted? ][
          ifelse interest-level > interest-threshold
-            [become-infected 2] 
-            [become-resistant]  
+            [become-accepted 2] 
+            [become-rejected]  
        ]
-       if interest-threshold > favorite-threshold[
-         ask facebook-neighbors with [not resistant? and not infected? ][
+       if interest-level > favorite-threshold[
+         ask facebook-neighbors with [not rejected? and not accepted? ][
            ifelse interest-level > interest-threshold
-              [become-infected 1] 
-              [become-resistant]  
+              [become-accepted 1] 
+              [become-rejected]  
          ] 
        ]
      ]
@@ -212,44 +204,36 @@ to spread-information
      ;;message originator
      if received-from-network = 0[
        
-       ;; random 2 produces 0, 1
-       ifelse random 2 = 0 [
-       
-           ask twitter-neighbors with [not resistant? and not infected? ][
-             ifelse interest-level > interest-threshold
-                [become-infected 2] 
-                [become-resistant]  
-           ]
+       ask twitter-neighbors with [not rejected? and not accepted? ][
+         ifelse interest-level > interest-threshold
+            [become-accepted 2] 
+            [become-rejected]  
        ]
-       [
-           ask facebook-neighbors with [not resistant? and not infected? ][
-             ifelse interest-level > interest-threshold
-                [become-infected 1] 
-                [become-resistant]  
-           ]
-       ]
+  
+       ask facebook-neighbors with [not rejected? and not accepted? ][
+         ifelse interest-level > interest-threshold
+            [become-accepted 1] 
+            [become-rejected]  
+       ] 
      ]
   ] 
 end
 
-to spread-from-to [layerA layerB]
-  
-end
 
 ;---------------------------------------
 ;    Turtle Procedure
 ;---------------------------------------
 
-to become-infected [from] ;; turtle procedure
-  set infected? true
-  set resistant? false
+to become-accepted [from] ;; turtle procedure
+  set accepted? true
+  set rejected? false
   set received-from-network from
   
   ifelse from = 1
-  [set layer1-infected-count (layer1-infected-count + 1)]
-  [set layer2-infected-count (layer2-infected-count + 1)]
+  [set layer1-accepted-count (layer1-accepted-count + 1)]
+  [set layer2-accepted-count (layer2-accepted-count + 1)]
   
-  set infected-count (infected-count + 1)
+  set accepted-count (accepted-count + 1)
   
   set shape "face happy"
   set color green
@@ -257,17 +241,17 @@ end
 
 
 
-to become-susceptible  ;; turtle procedure
-  set infected? false
-  set resistant? false
+to become-inactive  ;; turtle procedure
+  set accepted? false
+  set rejected? false
   
   set color gray
   set shape "face neutral"
 end
 
-to become-resistant  ;; turtle procedure
-  set infected? false
-  set resistant? true
+to become-rejected  ;; turtle procedure
+  set accepted? false
+  set rejected? true
   
   ;ask my-links [  set thickness thickness + 0.3]
   ;ask my-links [ set color gray - 2 ]
@@ -321,11 +305,11 @@ NIL
 1
 
 BUTTON
-121
-16
-184
-49
-GO
+14
+58
+104
+91
+GO ONCE
 go
 NIL
 1
@@ -338,10 +322,10 @@ NIL
 1
 
 PLOT
-658
-137
-858
-287
+654
+63
+854
+213
 plot 1
 NIL
 NIL
@@ -353,46 +337,35 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles with [infected?]"
+"default" 1.0 0 -16777216 true "" "plot count turtles with [accepted?]"
 
 MONITOR
-661
-11
-771
-56
-number of links
-count links
-17
+654
+12
+762
+57
+accepted count
+accepted-count / run-count
+3
 1
 11
 
 MONITOR
-661
-69
-748
-114
-infect count
-infected-count / run-count
-17
-1
-11
-
-MONITOR
-758
-69
-839
-114
+767
+12
+848
+57
 coverage %
-round (100 * ((infected-count / total-num-nodes) / run-count))
-17
+round (100 * ((accepted-count / total-num-nodes) / run-count))
+3
 1
 11
 
 BUTTON
-122
-59
-186
-92
+98
+15
+162
+48
 NIL
 GO+
 NIL
@@ -406,30 +379,30 @@ NIL
 1
 
 SLIDER
-10
-110
-182
-143
+13
+145
+185
+178
 number-of-runs
 number-of-runs
 10
 100
-20
+100
 10
 1
 NIL
 HORIZONTAL
 
 SLIDER
-10
-303
-183
-336
+12
+193
+185
+226
 interest-threshold
 interest-threshold
 0
 100
-65
+91
 1
 1
 NIL
@@ -437,51 +410,116 @@ HORIZONTAL
 
 SLIDER
 11
-346
+234
 184
-379
+267
 favorite-threshold
 favorite-threshold
 interest-threshold
 100
-97
+92
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-662
+653
+224
+788
+269
+accepted-by-layer1
+layer1-accepted-count / run-count
+3
+1
+11
+
+MONITOR
+654
+275
+789
 320
-791
-365
-infected-by-layer1
-layer1-infected-count / run-count
-17
+accepted-by-layer2
+layer2-accepted-count / run-count
+3
 1
 11
 
 MONITOR
-664
-379
-793
-424
-infected-by-layer2
-layer2-infected-count / run-count
-17
-1
 11
-
-MONITOR
-785
-14
-970
-59
+404
+196
+449
 number of interested nodes
-count turtles with [ interest-level > 50 ]
+count turtles with [ interest-level > interest-threshold ]
 17
 1
 11
+
+MONITOR
+13
+292
+70
+337
+nodes
+count turtles
+17
+1
+11
+
+MONITOR
+12
+346
+74
+391
+edges 1
+count facebooks
+17
+1
+11
+
+MONITOR
+80
+348
+142
+393
+edges 2
+count twitters
+17
+1
+11
+
+MONITOR
+657
+350
+717
+395
+Recall %
+(100 * accepted-count / count turtles with [ interest-level > interest-threshold ]) / run-count
+1
+1
+11
+
+MONITOR
+728
+351
+798
+396
+Precision
+(100 * accepted-count / count turtles with [accepted? or rejected?]) / run-count
+1
+1
+11
+
+CHOOSER
+13
+96
+156
+141
+originator-network
+originator-network
+0 1 2
+2
 
 @#$#@#$#@
 ## WHAT IS IT?

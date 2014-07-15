@@ -26,7 +26,7 @@ def genGraphFile(nth_file):
 
 		if networkType == 1:
 			#Erdos_Renyi(n, p, m, directed=False, loops=False)
-			g = Graph.Erdos_Renyi(n=100, m=200,directed=False, loops=False)
+			g = Graph.Erdos_Renyi(n=10, m=13,directed=False, loops=False)
 			networkName = 'ER'
 
 		elif networkType == 2:

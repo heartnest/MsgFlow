@@ -50,6 +50,9 @@ to setup
     layout-spring turtles links 0.3 (world-width / (sqrt total-num-nodes)) 1
   ]
   
+  ;debug
+  ask turtles [ set label who ]
+  
 end
 
 to loadNetwork
@@ -58,7 +61,7 @@ to loadNetwork
   let arr_edges []
   
   ;; read file network 1
-  file-open "corpus/ER_n100_e200_0.dot"
+  file-open "corpus/ER_n10_e13_0.dot"
   while [ not file-at-end? ] [
     set arr lput file-read-line arr
   ]
@@ -77,16 +80,16 @@ to loadNetwork
   
   
   ;; read file network 2
-  set arr []
-  file-open "corpus/ER_n100_e200_1.dot"
-  while [ not file-at-end? ] [
-    set arr lput file-read-line arr
-  ]
-  file-close
+  ;set arr []
+  ;file-open "corpus/ER_n100_e200_1.dot"
+  ;while [ not file-at-end? ] [
+  ;  set arr lput file-read-line arr
+  ;]
+  ;file-close
   
   ;; classify information network 2
-  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
-  igraph-create-edges arr_edges 2
+  ;set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
+  ;igraph-create-edges arr_edges 2
   
   ask facebooks [set color blue]
   ask twitters [set color yellow]
@@ -147,10 +150,10 @@ to go+
 end
 
 to oneSimulationCycle
-  spread-information
+  gossip-spread
   while [received-count != last-received-count][
     set last-received-count received-count
-    spread-information
+    gossip-spread
     tick
   ]
 end
@@ -176,8 +179,9 @@ end
 
 to place-originator
   ask one-of turtles[ 
-      set color pink    
+       
       become-informed originator-layer
+      set color pink   
   ]
 end
 
@@ -185,48 +189,48 @@ end
 ;; gossip algorithm spread mode
 ;;
 ;;
-to spread-information
+to gossip-spread
   ask turtles with [received? and not sent?][  
     
     let myid who
+    let myRecFrom received-from-node
     set sent? true
     
-    ;;msg layer 1 - layer 1 & layer 1 - layer 2
-     if received-from-network = 1[
-       ;show count facebook-neighbors with [myid != received-from-node] 
-       ask facebook-neighbors  [
-         
-
+     ;;broadcast when message received from network 1
+     ;;
+     if received-from-network = 1 [ 
+       ask facebook-neighbors with [who != myRecFrom][
          if random-float 100 < prob-layer1-layer1 [
-           print (word "my id " myid " received from." received-from-node)
            spread-on-layer1 myid
          ]  
        ]
-       ask twitter-neighbors with [myid != received-from-node] [
+       ask twitter-neighbors with [who != myRecFrom][
          if random-float 100 < prob-layer1-layer2[
            spread-on-layer2 myid
          ] 
        ]
      ]
      
-     ;;message received from network 2
+     ;;broadcast when message received from network 2
+     ;;
      if received-from-network = 2[
-       ask twitter-neighbors with [myid != received-from-node] [
+       ask twitter-neighbors with [who != myRecFrom][
          if random-float 100 < prob-layer2-layer2[
            spread-on-layer2 myid
          ]
        ]
-       ask facebook-neighbors with [myid != received-from-node]  [
+       ask facebook-neighbors with [who != myRecFrom][
          if random-float 100 < prob-layer2-layer1[
             spread-on-layer1 myid
          ]
        ] 
      ]
      
-     ;;message originator both layer
+     ;; when originator layer is 0, send msg in both layer,
+     ;; the order is decided in random
+     ;;
      if received-from-network = 0[
        ifelse random 2 = 0[
-         
           ask twitter-neighbors[
           if random-float 100 < prob-layer2-layer2
              [spread-on-layer2 myid] 
@@ -235,19 +239,18 @@ to spread-information
           if random-float 100 < prob-layer1-layer1
              [spread-on-layer1 myid] 
           ] 
-         
         ]
        [
-        
           ask facebook-neighbors[
-           if random-float 100 < prob-layer1-layer1
-              [spread-on-layer1 myid] 
-           ]
+           if random-float 100 < prob-layer1-layer1[
+                spread-on-layer1 myid
+            ] 
+          ]
           ask twitter-neighbors[
-           if random-float 100 < prob-layer2-layer2
-              [spread-on-layer2 myid] 
-           ] 
-        
+           if random-float 100 < prob-layer2-layer2[
+             spread-on-layer2 myid
+            ] 
+          ] 
         ]       
      ]
   ] 
@@ -255,8 +258,8 @@ end
 
 to spread-on-layer1 [fatherid]
   set layer1-msg-count layer1-msg-count + 1
-  if not received?
-  [become-informed 1
+  if not received?[
+    become-informed 1
     set received-from-node fatherid
   ]
 end
@@ -278,8 +281,10 @@ to become-informed [from] ;; turtle procedure
   set received? true
   set received-from-network from
   
-  ifelse from = 1
+  if from = 1
   [set layer1-received-count (layer1-received-count + 1)]
+  
+  if from = 2
   [set layer2-received-count (layer2-received-count + 1)]
   
   if from = 0[
@@ -287,7 +292,8 @@ to become-informed [from] ;; turtle procedure
     set layer1-received-count (layer1-received-count + 1)
   ]
   
-  set received-count (layer1-received-count + layer2-received-count)
+  ;set received-count (layer1-received-count + layer2-received-count)
+  set received-count received-count + 1
   
   set shape "face happy"
   set color green
@@ -385,9 +391,9 @@ PENS
 MONITOR
 716
 71
-820
+824
 116
-received count
+#node received
 received-count / run-count
 3
 1
