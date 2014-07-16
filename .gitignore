@@ -1,2 +1,5 @@
 corpus/
 results/
+results_weak/
+results_strong/
+results_msg/
