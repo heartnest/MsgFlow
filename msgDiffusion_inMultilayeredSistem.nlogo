@@ -16,14 +16,21 @@ turtles-own[
 globals [
   total-num-nodes   
   
+  networkfile1
+  networkfile2
+  
+  list-precision
+  list-recall
+  
   layer1-accepted-count 
   layer2-accepted-count 
   
   accepted-count
   last-accepted-count 
-  
- 
   run-count
+  
+  total-precision
+  total-recall
 ]
 
 
@@ -33,11 +40,17 @@ globals [
 
 to setup
   ca
+  set networkfile1"corpus/ER_n100_e200_1.dot"
+  set networkfile2"corpus/ER_n100_e200_0.dot"
+  set list-precision []
+  set list-recall []
+  
   random-seed 137
   set-default-shape turtles "circle"
 
   reset-ticks  
   loadNetwork
+  
   
   ;; clean graph
   repeat 5
@@ -46,78 +59,6 @@ to setup
   ]
 end
 
-to loadNetwork
-  let arr []
-  let arr_nodes []
-  let arr_edges []
-  
-  ;; read file network 1
-  file-open "corpus/SF_n100_e197_0.dot"
-  while [ not file-at-end? ] [
-    set arr lput file-read-line arr
-  ]
-  file-close
-  
-  ;; classify information network 1
-  set arr filter [not (member? "{" ?) and not (member? "}" ?) and not (member? "igraph" ?)] arr
-  set arr_nodes filter [(member? ";" ?) and not (member? " -- " ?) ] arr
-  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
-  
-  set total-num-nodes (length arr_nodes)
-  
-  ;; build graph network 1
-  igraph-create-nodes arr_nodes
-  igraph-create-edges arr_edges 1
-  
-  
-  ;; read file network 2
-  set arr []
-  file-open "corpus/ER_n100_e200_0.dot"
-  while [ not file-at-end? ] [
-    set arr lput file-read-line arr
-  ]
-  file-close
-  
-  ;; classify information network 2
-  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
-  igraph-create-edges arr_edges 2
-  
-  ask facebooks [set color blue]
-  ask twitters [set color yellow]
-  
-end
-
-to igraph-create-nodes [arr_nodes]
-    crt length arr_nodes [ 
-      setxy (random-xcor * 0.95) (random-ycor * 0.95) 
-      become-inactive
-      set interest-level random 100
-    ]
-end
-
-to igraph-create-edges [arr_edges edge_type]
-  
-  foreach arr_edges [
-    if member? " -- " ?[ 
-      ;show ?
-      let p  position " -- " ?
-      let t1 substring ? 2 p
-      let t2 substring ? (p + 4) (length ? - 1)
-      
-      let turtle1 turtle (read-from-string t1)
-      let turtle2 turtle (read-from-string t2)
-      
-      if is-turtle? turtle1[
-        
-        ifelse edge_type = 1
-        [ask turtle1 [ create-facebook-with turtle2 ]]
-        [ask turtle1 [ create-twitter-with turtle2 ]]
-        
-      ]
-    ]
-  ]
-end
-  
 
 ;; run simulation just 1 time
 to go
@@ -127,12 +68,41 @@ end
 
 ;; run simulation n times
 to go+
+  clear-count
   set run-count 1
   repeat number-of-runs[
     clear-network
     oneSimulationCycle 
-    set run-count run-count + 1
+    
+    if run-count < number-of-runs
+    [set run-count run-count + 1]
   ]
+end
+
+to experiment-go
+  set interest-threshold 0
+  let portion (1 / 3)
+  repeat 101[
+    set favorite-threshold (interest-threshold + round((100 - interest-threshold) * portion))
+    go+
+    set list-recall lput (round(100 * total-recall / run-count)) list-recall
+    set list-precision lput (round (100 * (total-precision / run-count))) list-precision
+    
+    if interest-threshold < 100
+    [set interest-threshold interest-threshold + 1]
+  ]
+
+  file-open "results_msg/recall.txt"
+  foreach list-recall[
+    file-print ?
+  ]
+  file-close
+  
+  file-open "results_msg/precision.txt"
+  foreach list-precision[
+    file-print ?
+  ]
+  file-close
 end
 
 to oneSimulationCycle
@@ -143,6 +113,15 @@ to oneSimulationCycle
     spread-information
     tick
   ]
+  
+  set total-precision total-precision + (count turtles with [accepted?] / (count turtles with [accepted? or rejected?]))
+  ifelse count turtles with [interest-level > interest-threshold] != 0
+  [
+    
+    set total-recall total-recall + floor((count turtles with [accepted?] )/ count turtles with [interest-level > interest-threshold or accepted?])
+    ;print (word " h "  floor(count turtles with [accepted?] / count turtles with [interest-level > interest-threshold]) " count "count turtles with [accepted?] " all "  count turtles with [interest-level > interest-threshold] "total recall " total-recall)
+    ]
+  [set total-recall total-recall + 0]
 end
 
 to clear-network
@@ -150,6 +129,15 @@ to clear-network
   ask turtles [become-inactive]
 end
 
+to clear-count
+  set total-precision 0
+  set total-recall 0
+  set layer1-accepted-count 0
+  set layer2-accepted-count 0
+  
+  set accepted-count 0
+  set last-accepted-count 0
+end
 
 
 ;---------------------------------------
@@ -259,6 +247,84 @@ to become-rejected  ;; turtle procedure
   set color red
   set shape "face sad"
 end
+
+;---------------------------------------
+;    iGraph creation
+;---------------------------------------
+
+
+to loadNetwork
+  let arr []
+  let arr_nodes []
+  let arr_edges []
+  
+  ;; read file network 1
+  file-open networkfile1
+  while [ not file-at-end? ] [
+    set arr lput file-read-line arr
+  ]
+  file-close
+  
+  ;; classify information network 1
+  set arr filter [not (member? "{" ?) and not (member? "}" ?) and not (member? "igraph" ?)] arr
+  set arr_nodes filter [(member? ";" ?) and not (member? " -- " ?) ] arr
+  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
+  
+  set total-num-nodes (length arr_nodes)
+  
+  ;; build graph network 1
+  igraph-create-nodes arr_nodes
+  igraph-create-edges arr_edges 1
+  
+  
+  ;; read file network 2
+  set arr []
+  file-open networkfile2
+  while [ not file-at-end? ] [
+    set arr lput file-read-line arr
+  ]
+  file-close
+  
+  ;; classify information network 2
+  set arr_edges filter [(member? ";" ?) and (member? " -- " ?) ] arr
+  igraph-create-edges arr_edges 2
+  
+  ask facebooks [set color blue]
+  ask twitters [set color yellow]
+  
+end
+
+to igraph-create-nodes [arr_nodes]
+    crt length arr_nodes [ 
+      setxy (random-xcor * 0.95) (random-ycor * 0.95) 
+      become-inactive
+      set interest-level random 100
+    ]
+end
+
+to igraph-create-edges [arr_edges edge_type]
+  
+  foreach arr_edges [
+    if member? " -- " ?[ 
+      ;show ?
+      let p  position " -- " ?
+      let t1 substring ? 2 p
+      let t2 substring ? (p + 4) (length ? - 1)
+      
+      let turtle1 turtle (read-from-string t1)
+      let turtle2 turtle (read-from-string t2)
+      
+      if is-turtle? turtle1[
+        
+        ifelse edge_type = 1
+        [ask turtle1 [ create-facebook-with turtle2 ]]
+        [ask turtle1 [ create-twitter-with turtle2 ]]
+        
+      ]
+    ]
+  ]
+end
+  
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -305,10 +371,10 @@ NIL
 1
 
 BUTTON
-14
-58
-104
-91
+88
+16
+178
+49
 GO ONCE
 go
 NIL
@@ -321,40 +387,22 @@ NIL
 NIL
 1
 
-PLOT
-654
-63
-854
-213
-plot 1
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles with [accepted?]"
-
 MONITOR
-654
-12
-762
-57
-accepted count
+657
+124
+790
+169
+avg accepted count
 accepted-count / run-count
 3
 1
 11
 
 MONITOR
-767
-12
-848
-57
+795
+123
+876
+168
 coverage %
 round (100 * ((accepted-count / total-num-nodes) / run-count))
 3
@@ -362,10 +410,10 @@ round (100 * ((accepted-count / total-num-nodes) / run-count))
 11
 
 BUTTON
-98
-15
-162
-48
+13
+59
+77
+92
 NIL
 GO+
 NIL
@@ -379,14 +427,14 @@ NIL
 1
 
 SLIDER
-13
-145
-185
-178
+9
+262
+181
+295
 number-of-runs
 number-of-runs
 10
-100
+500
 100
 10
 1
@@ -394,40 +442,40 @@ NIL
 HORIZONTAL
 
 SLIDER
-12
-193
-185
-226
+8
+310
+181
+343
 interest-threshold
 interest-threshold
 0
 100
-91
+100
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-11
-234
-184
-267
+7
+351
+180
+384
 favorite-threshold
 favorite-threshold
 interest-threshold
 100
-92
+100
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-653
+658
+179
+793
 224
-788
-269
 accepted-by-layer1
 layer1-accepted-count / run-count
 3
@@ -435,10 +483,10 @@ layer1-accepted-count / run-count
 11
 
 MONITOR
-654
+659
+230
+794
 275
-789
-320
 accepted-by-layer2
 layer2-accepted-count / run-count
 3
@@ -446,10 +494,10 @@ layer2-accepted-count / run-count
 11
 
 MONITOR
-11
-404
-196
-449
+657
+66
+842
+111
 number of interested nodes
 count turtles with [ interest-level > interest-threshold ]
 17
@@ -457,10 +505,10 @@ count turtles with [ interest-level > interest-threshold ]
 11
 
 MONITOR
-13
-292
-70
-337
+658
+10
+715
+55
 nodes
 count turtles
 17
@@ -468,10 +516,10 @@ count turtles
 11
 
 MONITOR
-12
-346
-74
-391
+719
+10
+781
+55
 edges 1
 count facebooks
 17
@@ -479,10 +527,10 @@ count facebooks
 11
 
 MONITOR
-80
-348
-142
-393
+786
+10
+848
+55
 edges 2
 count twitters
 17
@@ -490,36 +538,53 @@ count twitters
 11
 
 MONITOR
-657
-350
-717
-395
+659
+292
+719
+337
 Recall %
-(100 * accepted-count / count turtles with [ interest-level > interest-threshold ]) / run-count
+100 * total-recall / run-count
 1
 1
 11
 
 MONITOR
-728
-351
-798
-396
+724
+292
+794
+337
 Precision
-(100 * accepted-count / count turtles with [accepted? or rejected?]) / run-count
+(100 * total-precision) / run-count
 1
 1
 11
 
 CHOOSER
-13
-96
-156
-141
+9
+197
+152
+242
 originator-network
 originator-network
 0 1 2
-2
+0
+
+BUTTON
+13
+103
+138
+136
+NIL
+experiment-go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
