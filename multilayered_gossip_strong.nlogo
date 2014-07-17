@@ -44,15 +44,19 @@ to setup
   ca
   set list-msg []
   set list-coverage []   
+  ;set networkfile1  "corpus/ER_n100_e200_1.dot"
+  ;set networkfile2  "corpus/ER_n100_e200_0.dot"
   set networkfile1  "corpus/ER_n100_e200_1.dot"
   set networkfile2  "corpus/ER_n100_e200_0.dot"
+  
   random-seed 109
   set-default-shape turtles "circle"
+
   reset-ticks
   loadNetwork
   calcASN
   ;; clean graph
-  repeat 5
+  repeat 6
   [
     layout-spring turtles links 0.3 (world-width / (sqrt total-num-nodes)) 1
   ]
@@ -522,7 +526,7 @@ prob-layer2-layer2
 prob-layer2-layer2
 0
 100
-50
+0
 1
 1
 NIL

@@ -126,7 +126,7 @@ end
 
 to clear-network
   reset-ticks
-  ask turtles [become-inactive]
+  ask turtles [become-unexplored]
 end
 
 to clear-count
@@ -229,7 +229,7 @@ end
 
 
 
-to become-inactive  ;; turtle procedure
+to become-unexplored  ;; turtle procedure
   set accepted? false
   set rejected? false
   
@@ -297,7 +297,7 @@ end
 to igraph-create-nodes [arr_nodes]
     crt length arr_nodes [ 
       setxy (random-xcor * 0.95) (random-ycor * 0.95) 
-      become-inactive
+      become-unexplored
       set interest-level random 100
     ]
 end
@@ -435,7 +435,7 @@ number-of-runs
 number-of-runs
 10
 500
-100
+500
 10
 1
 NIL
@@ -450,7 +450,7 @@ interest-threshold
 interest-threshold
 0
 100
-100
+99
 1
 1
 NIL
@@ -551,9 +551,9 @@ Recall %
 MONITOR
 724
 292
-794
+805
 337
-Precision
+Precision %
 (100 * total-precision) / run-count
 1
 1

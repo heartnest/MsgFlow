@@ -45,7 +45,7 @@ to setup
   set list-msg []
   set list-coverage []   
   set networkfile1  "corpus/ER_n100_e200_1.dot"
-  set networkfile2  "corpus/ER_n100_e200_1.dot"
+  set networkfile2  "corpus/ER_n100_e200_0.dot"
   random-seed 109
   set-default-shape turtles "circle"
   reset-ticks
@@ -482,7 +482,7 @@ number-of-runs
 number-of-runs
 50
 500
-500
+50
 10
 1
 NIL
@@ -497,7 +497,7 @@ prob-layer1-layer1
 prob-layer1-layer1
 0
 100
-50
+100
 1
 1
 NIL
@@ -512,7 +512,7 @@ prob-layer1-layer2
 prob-layer1-layer2
 0
 100
-100
+0
 1
 1
 NIL
@@ -527,7 +527,7 @@ prob-layer2-layer2
 prob-layer2-layer2
 0
 100
-50
+0
 1
 1
 NIL
@@ -542,7 +542,7 @@ prob-layer2-layer1
 prob-layer2-layer1
 0
 100
-100
+0
 1
 1
 NIL
@@ -598,7 +598,7 @@ CHOOSER
 originator-layer
 originator-layer
 0 1 2
-0
+1
 
 TEXTBOX
 17
