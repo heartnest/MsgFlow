@@ -81,12 +81,12 @@ end
 
 to experiment-go
   set interest-threshold 0
-  let portion (1 / 3)
+  ;let portion (3 / 3)
   repeat 101[
-    set favorite-threshold (interest-threshold + round((100 - interest-threshold) * portion))
+    ;set favorite-threshold (interest-threshold + round((100 - interest-threshold) * portion))
     go+
-    set list-recall lput (round(100 * total-recall / run-count)) list-recall
-    set list-precision lput (round (100 * (total-precision / run-count))) list-precision
+    set list-recall lput (round( total-recall / run-count)) list-recall
+    set list-precision lput (round ( (total-precision / run-count))) list-precision
     
     if interest-threshold < 100
     [set interest-threshold interest-threshold + 1]
@@ -114,14 +114,16 @@ to oneSimulationCycle
     tick
   ]
   
-  set total-precision total-precision + (count turtles with [accepted?] / (count turtles with [accepted? or rejected?]))
+  set total-precision total-precision + (100 * count turtles with [accepted?] / (count turtles with [accepted? or rejected?]))
   ifelse count turtles with [interest-level > interest-threshold] != 0
   [
     
-    set total-recall total-recall + floor((count turtles with [accepted?] )/ count turtles with [interest-level > interest-threshold or accepted?])
-    ;print (word " h "  floor(count turtles with [accepted?] / count turtles with [interest-level > interest-threshold]) " count "count turtles with [accepted?] " all "  count turtles with [interest-level > interest-threshold] "total recall " total-recall)
+    set total-recall total-recall + floor(100 * (count turtles with [accepted?] )/ count turtles with [interest-level > interest-threshold or accepted?])
+   ; print (word " recall "  floor(100 * count turtles with [accepted?] / count turtles with [interest-level > interest-threshold or accepted?]) " accepted "count turtles with [accepted?] " interested turtles"  count turtles with [interest-level > interest-threshold or accepted?] "total recall " total-recall)
     ]
-  [set total-recall total-recall + 0]
+  [set total-recall total-recall + 0
+   ; print (word "im here ... ")
+    ]
 end
 
 to clear-network
@@ -435,7 +437,7 @@ number-of-runs
 number-of-runs
 10
 500
-500
+190
 10
 1
 NIL
@@ -450,7 +452,7 @@ interest-threshold
 interest-threshold
 0
 100
-99
+16
 1
 1
 NIL
@@ -465,7 +467,7 @@ favorite-threshold
 favorite-threshold
 interest-threshold
 100
-100
+95
 1
 1
 NIL
@@ -543,7 +545,7 @@ MONITOR
 719
 337
 Recall %
-100 * total-recall / run-count
+total-recall / run-count
 1
 1
 11
@@ -554,7 +556,7 @@ MONITOR
 805
 337
 Precision %
-(100 * total-precision) / run-count
+total-precision / run-count
 1
 1
 11
@@ -567,7 +569,7 @@ CHOOSER
 originator-network
 originator-network
 0 1 2
-0
+1
 
 BUTTON
 13
