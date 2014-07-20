@@ -572,10 +572,10 @@ originator-network
 1
 
 BUTTON
-13
-103
-138
-136
+12
+129
+137
+162
 NIL
 experiment-go
 NIL
